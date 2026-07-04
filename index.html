@@ -1766,9 +1766,33 @@ async function cancelFromTracking(orderId, phone) {
 // ════════════════════════════════════════════════
 let lastOrderSnapshot = null;
 
-function generateInvoice() {
+// Invoice HTML is opened via a Blob URL, which has no real path to resolve
+// "assets/favicon.png" against — so the logo must be embedded as base64.
+// Fetched once from the real page (where the relative path DOES resolve)
+// and cached for reuse.
+let _logoDataUrlCache = null;
+async function getLogoDataUrl() {
+  if (_logoDataUrlCache) return _logoDataUrlCache;
+  try {
+    const res  = await fetch('assets/favicon.png');
+    const blob = await res.blob();
+    _logoDataUrlCache = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) {
+    _logoDataUrlCache = ''; // fall back to no logo rather than a broken path
+  }
+  return _logoDataUrlCache;
+}
+
+async function generateInvoice() {
   const o = lastOrderSnapshot;
   if (!o) { showToast('রসিদের তথ্য পাওয়া যায়নি!'); return; }
+
+  const logoSrc = await getLogoDataUrl();
 
   const itemRows = o.items.map(i => `
     <tr>
@@ -1824,7 +1848,7 @@ function generateInvoice() {
 <div class="invoice">
   <div class="inv-header">
     <div>
-      <div class="inv-logo"><img src="assets/favicon.png" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:2px solid rgba(255,255,255,0.3)"> মাটির কথা</div>
+      <div class="inv-logo">${logoSrc ? `<img src="${logoSrc}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:2px solid rgba(255,255,255,0.3)">` : ''} মাটির কথা</div>
       <div class="inv-tagline">নওয়াপাড়া শিল্পনগরী, অভয়নগর, যশোর</div>
       <div class="inv-tagline" style="margin-top:3px">📞 01621-978541</div>
     </div>

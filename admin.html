@@ -670,8 +670,31 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 // ════════════════════════════════════════════════
 // ── ADMIN INVOICE GENERATOR ──
 // ════════════════════════════════════════════════
-function adminGenerateInvoice(orderJson) {
+// Invoice HTML is opened via a Blob URL, which has no real path to resolve
+// "assets/favicon.png" against — so the logo must be embedded as base64.
+// Fetched once from the real page (where the relative path DOES resolve)
+// and cached for reuse.
+let _logoDataUrlCache = null;
+async function getLogoDataUrl() {
+  if (_logoDataUrlCache) return _logoDataUrlCache;
+  try {
+    const res  = await fetch('assets/favicon.png');
+    const blob = await res.blob();
+    _logoDataUrlCache = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch(e) {
+    _logoDataUrlCache = ''; // fall back to no logo rather than a broken path
+  }
+  return _logoDataUrlCache;
+}
+
+async function adminGenerateInvoice(orderJson) {
   const o = JSON.parse(orderJson);
+  const logoSrc = await getLogoDataUrl();
 
   // Parse items — lookup name & price from cached products (loaded at login)
   let itemRows = '';
@@ -738,7 +761,7 @@ function adminGenerateInvoice(orderJson) {
 <div class="invoice">
   <div class="inv-header">
     <div>
-      <div class="inv-logo"><img src="assets/favicon.png" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:2px solid rgba(255,255,255,0.3)"> মাটির কথা</div>
+      <div class="inv-logo">${logoSrc ? `<img src="${logoSrc}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px;border:2px solid rgba(255,255,255,0.3)">` : ''} মাটির কথা</div>
       <div style="font-size:0.78rem;opacity:0.75">নওয়াপাড়া শিল্পনগরী, অভয়নগর, যশোর</div>
       <div style="font-size:0.75rem;opacity:0.7;margin-top:2px">📞 01621-978541</div>
     </div>
